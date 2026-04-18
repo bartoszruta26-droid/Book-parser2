@@ -5,22 +5,26 @@ CXXFLAGS = -std=c++17 -O2 -Wall -Wextra
 CHUNKER_TARGET = chunker
 MEMPALACE_TARGET = mempalace_client
 OLLAMA_EXPANDER_TARGET = ollama_expander
+DOC_GENERATOR_TARGET = doc_generator
 CHUNKER_SRC = src/chunker.cpp
 MEMPALACE_SRC = src/mempalace_client.cpp
 OLLAMA_EXPANDER_SRC = src/ollama_expander.cpp
+DOC_GENERATOR_SRC = src/doc_generator.cpp
 
 # Flags dla mempalace client i ollama expander (wymaga CURL i nlohmann/json)
 COMMON_LDFLAGS = -lcurl
 
-.PHONY: all clean test install help mempalace chunker expander
+.PHONY: all clean test install help mempalace chunker expander docgenerator
 
-all: $(CHUNKER_TARGET) $(MEMPALACE_TARGET) $(OLLAMA_EXPANDER_TARGET)
+all: $(CHUNKER_TARGET) $(MEMPALACE_TARGET) $(OLLAMA_EXPANDER_TARGET) $(DOC_GENERATOR_TARGET)
 
 chunker: $(CHUNKER_TARGET)
 
 mempalace: $(MEMPALACE_TARGET)
 
 expander: $(OLLAMA_EXPANDER_TARGET)
+
+docgenerator: $(DOC_GENERATOR_TARGET)
 
 $(CHUNKER_TARGET): $(CHUNKER_SRC)
 	$(CXX) $(CXXFLAGS) -o $(CHUNKER_TARGET) $(CHUNKER_SRC)
@@ -31,11 +35,15 @@ $(MEMPALACE_TARGET): $(MEMPALACE_SRC)
 $(OLLAMA_EXPANDER_TARGET): $(OLLAMA_EXPANDER_SRC) src/ollama_client.h src/content_expander.h
 	$(CXX) $(CXXFLAGS) -o $(OLLAMA_EXPANDER_TARGET) $(OLLAMA_EXPANDER_SRC) $(COMMON_LDFLAGS)
 
+$(DOC_GENERATOR_TARGET): $(DOC_GENERATOR_SRC)
+	$(CXX) $(CXXFLAGS) -o $(DOC_GENERATOR_TARGET) $(DOC_GENERATOR_SRC)
+
 clean:
-	rm -f $(CHUNKER_TARGET) $(MEMPALACE_TARGET) $(OLLAMA_EXPANDER_TARGET)
+	rm -f $(CHUNKER_TARGET) $(MEMPALACE_TARGET) $(OLLAMA_EXPANDER_TARGET) $(DOC_GENERATOR_TARGET)
 	rm -rf chunk/*
 	rm -rf logs/*
 	rm -rf output/*
+	rm -rf tasks/*
 
 test: $(CHUNKER_TARGET)
 	@echo "Tworzenie plikow testowych..."
@@ -51,10 +59,15 @@ test-expander: $(OLLAMA_EXPANDER_TARGET)
 	@echo "Testowanie ollama expander..."
 	./$(OLLAMA_EXPANDER_TARGET) --help
 
-install: $(CHUNKER_TARGET) $(MEMPALACE_TARGET) $(OLLAMA_EXPANDER_TARGET)
+test-docgenerator: $(DOC_GENERATOR_TARGET)
+	@echo "Testowanie doc generator..."
+	./$(DOC_GENERATOR_TARGET) --help
+
+install: $(CHUNKER_TARGET) $(MEMPALACE_TARGET) $(OLLAMA_EXPANDER_TARGET) $(DOC_GENERATOR_TARGET)
 	cp $(CHUNKER_TARGET) /usr/local/bin/
 	cp $(MEMPALACE_TARGET) /usr/local/bin/
 	cp $(OLLAMA_EXPANDER_TARGET) /usr/local/bin/
+	cp $(DOC_GENERATOR_TARGET) /usr/local/bin/
 
 help:
 	@echo "Dostepne cele:"
@@ -62,9 +75,11 @@ help:
 	@echo "  chunker        - Kompilacja tylko chunkera"
 	@echo "  mempalace      - Kompilacja tylko klienta mempalace"
 	@echo "  expander       - Kompilacja tylko ollama content expander"
+	@echo "  docgenerator   - Kompilacja generatora dokumentow DOC"
 	@echo "  clean          - Usuwa pliki wynikowe i czysci katalogi"
 	@echo "  test           - Kompiluje i uruchamia testy chunkera"
 	@echo "  test-mempalace - Testuje klienta mempalace"
 	@echo "  test-expander  - Testuje ollama content expander"
+	@echo "  test-docgenerator - Testuje generator dokumentow"
 	@echo "  install        - Instaluje programy w /usr/local/bin"
 	@echo "  help           - Wyswietla te pomoc"
