@@ -1,0 +1,12 @@
+[2026-04-21 04:37:14] === Nowa sesja generowania dokumentu DOC ===
+[2026-04-21 04:37:14] Ładowanie chunków z katalogu: ./chunk
+[2026-04-21 04:37:14] Znaleziono 4 chunków
+[2026-04-21 04:37:14] Łączna liczba tokenów: 3845
+[2026-04-21 04:37:14] Generowanie dokumentu DOC: ./finish/test_book.doc
+[2026-04-21 04:37:14] Dokument wygenerowany sukcesnie
+[2026-04-21 04:38:49] === Nowa sesja generowania dokumentu DOC ===
+[2026-04-21 04:38:49] Ładowanie chunków z katalogu: ./rewriten
+[2026-04-21 04:38:49] Znaleziono 1 chunków
+[2026-04-21 04:38:49] Łączna liczba tokenów: 0
+[2026-04-21 04:38:49] Generowanie dokumentu DOC: ./finish/book_from_rewritten.doc
+[2026-04-21 04:38:49] Dokument wygenerowany sukcesnie

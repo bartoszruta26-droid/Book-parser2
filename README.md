@@ -2,7 +2,9 @@
 
 > **Inteligentny system przetwarzania książek z wykorzystaniem lokalnych modeli AI na Raspberry Pi 4**
 
-Book-parser to zaawansowane narzędzie napisane w **C++** i **Bash**, które automatycznie przetwarza dokumenty książkowe, dzieli je na segmenty, zapisuje kontekst w lokalnej bazie wiedzy AI (mempalace), a następnie generuje spójne podsumowania przy użyciu modelu Qwen Coder. Cały proces jest orchestrowany przez agentów AI: **n8n** oraz **OpenClaw**.
+Book-parser to zaawansowane narzędzie napisane w **C++** i **Bash**, które automatycznie przetwarza dokumenty książkowe, dzieli je na segmenty (chunki), wysyła do mempalace, następnie przesyła rozdziały do Ollama (model Qwen-Coder) w celu przepisania, zapisuje wyniki w katalogu `/rewriten`, a na końcu generuje finalny dokument `.doc` z wykorzystaniem **OfficeCli AI** i zapisuje go w katalogu `/finish`.
+
+Cały proces jest zintegrowany w **jednym skrypcie** `run_pipeline.sh`, który orchestruje wszystkie etapy od A do Z.
 
 ---
 
@@ -14,6 +16,8 @@ Book-parser to zaawansowane narzędzie napisane w **C++** i **Bash**, które aut
 - [Wymagania sprzętowe i programowe](#-wymagania-sprzętowe-i-programowe)
 - [Obsługiwane formaty plików](#-obsługiwane-formaty-plików)
 - [Szczegółowy przepływ pracy](#-szczegółowy-przepływ-pracy)
+- [🚀 Szybki start - Kompletne A do Z](#-szybki-start---kompletne-a-do-z)
+- [▶️ Uruchomienie pipeline - KROK PO KROKU](#️-uruchomienie-pipeline---krok-po-kroku)
 - [Instalacja i konfiguracja](#-instalacja-i-konfiguracja)
 - [Użycie](#-użycie)
 - [Struktura katalogów](#-struktura-katalogów)
@@ -176,90 +180,172 @@ Book-parser obsługuje szeroki zakres formatów dokumentów:
 
 ---
 
-## 🔄 Szczegółowy przepływ pracy
+## 🔄 Szczegółowy przepływ pracy (zautomatyzowany w run_pipeline.sh)
 
-### Krok 1: Skanowanie katalogu wejściowego
-```bash
-./book-parser --scan /path/to/books
+### 📍 Struktura katalogów
 ```
-- Rekurencyjne przeszukiwanie katalogów
-- Identyfikacja obsługiwanych formatów
-- Walidacja integralności plików
-- Tworzenie kolejki zadań
+/input       → Pliki wejściowe książek (.txt, .doc, .pdf, .docx)
+/chunk       → Wygenerowane chunki (segmenty) w formacie JSON
+/rewriten    → Przepisane rozdziały przez Ollama Qwen-Coder
+/finish      → Finalny dokument .doc wygenerowany przez OfficeCli AI
+/logs        → Logi z procesu przetwarzania
+```
 
-### Krok 2: Konwersja i ekstrakcja tekstu
-- Uruchomienie LibreOffice w trybie headless dla formatów .doc/.xls
-- Użycie `pdftotext` dla plików PDF
-- Bezpośrednie czytanie dla .txt i .odt
-- Normalizacja kodowania (UTF-8)
+### 🔁 Pełny pipeline - krok po kroku
 
-### Krok 3: Chunkowanie tekstu
-- Podział na segmenty 4096 tokenów
-- Analiza struktury dokumentu (nagłówki, rozdziały)
-- Dodawanie metadanych kontekstowych:
-  ```json
-  {
-    "chunk_id": "book_001_chunk_042",
-    "source_file": "example_book.pdf",
-    "page_range": "210-215",
-    "current_chapter": "Rozdział 5: Architektura AI",
-    "prev_chapter": "Rozdział 4: Sieci neuronowe",
-    "next_chapter": "Rozdział 6: Uczenie głębokie",
-    "current_subchapter": "5.2 Transformery",
-    "prev_subchapter": "5.1 RNN i LSTM",
-    "next_subchapter": "5.3 Attention Mechanisms"
-  }
-  ```
+#### KROK 1: Chunking dokumentów z /input
+- Skrypt odczytuje wszystkie pliki z katalogu `/input`
+- Narzędzie `chunker` dzieli tekst na segmenty ~4096 tokenów
+- Każdy chunk zawiera metadane (rozdział, podrozdział, strony)
+- Zapis do katalogu `/chunk` w formacie JSON
 
-### Krok 4: Wysyłka do mempalace
-- Każdy chunk jest wysyłany jako osobny wpis
-- Indeksowanie po metadanych
-- Tworzenie relacji między chunkami
-- Budowanie grafu wiedzy
+```bash
+./chunker -i ./input -o ./chunk -v
+```
 
-### Krok 5: Analiza przez Qwen Coder
-- Odpytanie mempalace o pełny kontekst książki
-- Generowanie spójnego podsumowania
-- Ekstrakcja kluczowych koncepcji
-- Identyfikacja głównych wątków
+#### KROK 2: Wysyłka do Mempalace (opcjonalna)
+- Chunki są wysyłane do mempalace jako kontekstowa baza wiedzy
+- Tworzenie relacji między fragmentami tekstu
+- Indeksowanie dla szybkiego wyszukiwania
 
-### Krok 6: Zapis wyników
-- Podsumowania zapisywane w katalogu wyjściowym
-- Format: `.txt` lub `.md` (Markdown)
-- Opcjonalnie: eksport do `.pdf` lub `.html`
+```bash
+./mempalace_client -i ./chunk
+```
 
-### Krok 7: Orchestrowanie przez n8n i OpenClaw
-- **n8n**:
-  - Harmonogramowanie zadań (cron-like)
-  - Powiadomienia (email, Telegram, Discord)
-  - Integracja z zewnętrznymi API
-- **OpenClaw**:
-  - Monitorowanie postępów
-  - Retry logic dla nieudanych zadań
-  - Dynamiczne skalowanie priorytetów
+#### KROK 3: Ekspansja treści przez Ollama Qwen-Coder
+- Wybrane chunki są przesyłane do lokalnego serwera Ollama
+- Model Qwen-Coder przepisuje i rozszerza treść
+- Parametry konfigurowalne: styl, długość, język
+- Zapis wyników do katalogu `/rewriten` (JSON + TXT)
 
-### Krok 8: Generowanie finalnego dokumentu .doc z OfficeCli
-- **Integracja z [OfficeCli](https://github.com/iOfficeAI/OfficeCli)**:
-  - Wywołanie z poziomu shell: `officecli generate --input /workspace/chunks --output /workspace/finish/book.doc`
-  - AI-powered składanie chunków w spójny dokument
-  - Zachowanie formatowania i struktury oryginalnej książki
-  - Automatyczne generowanie spisu treści
-  - Wsparcie dla metadanych (autor, tytuł, data)
+```bash
+./ollama_expander \
+  -i ./chunk \
+  -o ./rewriten/rewritten.json \
+  -m qwen2.5-coder:3b \
+  -s creative \
+  -l long \
+  --lang pl \
+  --max-chunks 10
+```
+
+#### KROK 4: Generowanie finalnego dokumentu .doc z OfficeCli AI
+- Przepisane chunki z `/rewriten` są łączone w spójny dokument
+- OfficeCli AI generuje dokument `.doc` z zachowaniem struktury
+- Automatyczne tworzenie spisu treści
+- Dodawanie metadanych (autor, tytuł, data)
+- Finalny plik zapisywany w katalogu `/finish`
+
+```bash
+officecli generate \
+  --input ./rewriten \
+  --output ./finish/book.doc \
+  --format doc \
+  --ai-compose \
+  --title "Przetworzona Książka" \
+  --author "Book-Parser AI"
+```
+
+---
+
+### 🎯 Uruchomienie CAŁEGO procesu jedną komendą
+
+Wszystkie powyższe kroki są zautomatyzowane w **jednym skrypcie** `run_pipeline.sh`:
+
+```bash
+# Podstawowe użycie (tworzy przykładowy dokument jeśli input jest pusty)
+./run_pipeline.sh -e
+
+# Pełna konfiguracja z własnymi parametrami
+./run_pipeline.sh \
+  -i ./input \
+  -c ./chunk \
+  -r ./rewriten \
+  -o ./finish \
+  -e \
+  -m qwen2.5-coder:3b \
+  -s creative \
+  -l long \
+  --lang pl \
+  -n 10
+```
+
+### 📋 Opcje skryptu run_pipeline.sh
+
+| Opcja | Opis | Domyślna wartość |
+|-------|------|------------------|
+| `-i, --input DIR` | Katalog z dokumentami wejściowymi | `./input` |
+| `-c, --chunk-dir DIR` | Katalog na chunki | `./chunk` |
+| `-r, --rewriten DIR` | Katalog na przepisane chunki | `./rewriten` |
+| `-o, --output DIR` | Katalog wyjściowy (finalne dokumenty) | `./finish` |
+| `-m, --model MODEL` | Model Ollama | `qwen2.5-coder:7b` |
+| `-s, --style STYLE` | Styl: academic, journalistic, technical, creative, business, casual | `technical` |
+| `-l, --length LENGTH` | Długość: short, medium, long, very_long | `medium` |
+| `--lang LANGUAGE` | Język outputu | `pl` |
+| `-n, --max-chunks N` | Maksymalna liczba chunków do ekspansji | `5` |
+| `-e, --expand` | Włącz ekspansję treści przez LLM | `false` |
+| `--check` | Sprawdź dostępność Ollama i zakończ | - |
+| `-h, --help` | Wyświetl pomoc | - |
+
+### 🧪 Przykłady użycia
+
+```bash
+# Sprawdź czy Ollama działa
+./run_pipeline.sh --check
+
+# Przetwórz książki z input, używając modelu 3B, styl kreatywny, długi output
+./run_pipeline.sh -e -m qwen2.5-coder:3b -s creative -l long
+
+# Przetwórz z własnymi katalogami, język angielski
+./run_pipeline.sh \
+  -i /home/user/books \
+  -o /home/user/output \
+  -e \
+  --lang en \
+  -m qwen2.5-coder:7b
+
+# Tylko chunking bez ekspansji
+./run_pipeline.sh
+
+# Ekspansja tylko pierwszych 3 chunków (szybki test)
+./run_pipeline.sh -e -n 3
+```
 
 ---
 
 ### 📦 Output końcowy
 
-> **Na koniec w katalogu `/finish` będzie poskładana książka w formacie `.doc` z wykorzystaniem [iOfficeAI OfficeCli](https://github.com/iOfficeAI/OfficeCli).**
-> 
-> Przykładowe wywołanie z shell:
+> **Na koniec w katalogu `/finish` znajdziesz:**
+> 1. **book_YYYYMMDD_HHMMSS.doc** - Finalna książka w formacie .doc wygenerowana przez OfficeCli AI
+> 2. **rewritten_YYYYMMDD_HHMMSS.json** - Przepisane chunki w formacie JSON
+> 3. **rewritten_YYYYMMDD_HHMMSS.txt** - Przepisane chunki w formacie tekstowym
+> 4. **final_YYYYMMDD_HHMMSS.json** - Połączone wyniki z metadanymi
+
+> **Przykładowe wywołanie OfficeCli (wykonywane automatycznie):**
 > ```bash
 > officecli generate \
->   --input /workspace/chunks \
->   --output /workspace/finish/book.doc \
+>   --input ./rewriten \
+>   --output ./finish/book.doc \
 >   --format doc \
->   --ai-compose
+>   --ai-compose \
+>   --title "Przetworzony Dokument" \
+>   --author "Book-Parser AI"
 > ```
+
+> **Jeśli OfficeCli nie jest zainstalowane**, skrypt automatycznie użyje wbudowanego `doc_generator` jako fallback.
+
+---
+
+## 🚀 Szybki start - Kompletne A do Z
+
+### 📋 Pełny proces przepisywania książek krok po kroku
+
+Poniżej znajdziesz kompletną instrukcję od instalacji po finalny wynik. **Wszystkie kroki są zautomatyzowane w jednym skrypcie `run_pipeline.sh`**.
+
+#### Krok 0: Wymagania wstępne
+- Raspberry Pi 4 (zalecane 4-8GB RAM) lub inny komputer z Linux
+- Minimum 10GB wolnego miejsca na dysku
+- Połączenie internetowe do pobrania modeli AI
 
 ---
 
@@ -281,17 +367,71 @@ sudo apt install -y \
     poppler-utils \
     pandoc \
     git \
-    curl
+    curl \
+    python3 \
+    python3-pip
 ```
 
-### 3. Kompilacja projektu
+### 3. Kompilacja narzędzi (chunker, ollama_expander, doc_generator, mempalace_client)
 ```bash
-mkdir build && cd build
-cmake ..
-make -j$(nproc)
+make all
 ```
 
-### 4. Konfiguracja mempalace
+### 4. Instalacja OfficeCli AI (do generowania dokumentów .doc)
+```bash
+# Klonowanie OfficeCli
+git clone https://github.com/iOfficeAI/OfficeCli.git
+cd OfficeCli
+
+# Instalacja zależności Python
+pip3 install -r requirements.txt
+
+# Instalacja globalna
+sudo make install
+
+# Weryfikacja instalacji
+officecli --version
+```
+
+### 5. Instalacja i konfiguracja Ollama z modelem Qwen-Coder
+
+#### 5.1. Instalacja Ollama
+```bash
+# Automatyczna instalacja (oficjalny skrypt)
+curl -fsSL https://ollama.com/install.sh | sh
+
+# Uruchomienie usługi
+sudo systemctl start ollama
+sudo systemctl enable ollama
+
+# Weryfikacja
+ollama --version
+```
+
+#### 5.2. Pobranie modelu Qwen 2.5 Coder
+```bash
+# Wybierz model odpowiedni do Twojego sprzętu:
+
+# Dla 4GB RAM (zalecany balans):
+ollama pull qwen2.5-coder:3b
+
+# Dla 8GB RAM (maksymalna jakość):
+ollama pull qwen2.5-coder:7b
+
+# Dla 2GB RAM (podstawowe zastosowania):
+ollama pull qwen2.5-coder:1.5b
+```
+
+#### 5.3. Uruchomienie serwera Ollama
+```bash
+# W tle jako usługa (już powinno działać po instalacji)
+ollama serve &
+
+# Lub jako daemon systemd
+sudo systemctl start ollama
+```
+
+### 6. Konfiguracja mempalace (opcjonalne)
 ```bash
 # Sklonuj i skonfiguruj mempalace
 git clone https://github.com/milla-jovovich/mempalace.git 
@@ -299,7 +439,77 @@ cd mempalace
 # Postępuj zgodnie z instrukcjami instalacji mempalace
 ```
 
-### 5. Instalacja i konfiguracja Ollama z Qwen Code na Raspberry Pi 4
+---
+
+## ▶️ Uruchomienie pipeline - KROK PO KROKU
+
+### ✅ Checklista przed uruchomieniem
+
+1. [ ] Skompilowane narzędzia (`make all`)
+2. [ ] Zainstalowane OfficeCli AI (`officecli --version`)
+3. [ ] Uruchomiony serwer Ollama (`ollama serve`)
+4. [ ] Pobrany model Qwen-Coder (`ollama list`)
+5. [ ] Pliki książek w katalogu `/input`
+
+### 🚀 Start procesu
+
+```bash
+# 1. Upewnij się że Ollama działa
+./run_pipeline.sh --check
+
+# 2. Umieść pliki książek w katalogu input
+cp /sciezka/do/ksiazki.txt ./input/
+# lub
+cp /sciezka/do/ksiazki.pdf ./input/
+# lub
+cp /sciezka/do/ksiazki.docx ./input/
+
+# 3. Uruchom pełny pipeline z ekspansją treści
+./run_pipeline.sh -e
+
+# 4. Lub z pełną konfiguracją
+./run_pipeline.sh \
+  -i ./input \
+  -c ./chunk \
+  -r ./rewriten \
+  -o ./finish \
+  -e \
+  -m qwen2.5-coder:3b \
+  -s creative \
+  -l long \
+  --lang pl \
+  -n 10
+```
+
+### 📊 Monitorowanie postępu
+
+Skrypt wyświetla kolorowe komunikaty o statusie każdego kroku:
+- 🔵 **Niebieski** - Informacje o krokach
+- 🟢 **Zielony** - Sukces
+- 🟡 **Żółty** - Ostrzeżenia i informacje dodatkowe
+- 🔴 **Czerwony** - Błędy
+
+### 📁 Gdzie szukać wyników?
+
+Po zakończeniu procesu sprawdź katalogi:
+
+```bash
+# Chunki (segmenty tekstu)
+ls -lh ./chunk/
+
+# Przepisane rozdziały
+ls -lh ./rewriten/
+
+# Finalne dokumenty
+ls -lh ./finish/
+
+# Logi z procesu
+ls -lh ./logs/
+```
+
+---
+
+## 🔧 Szczegółowa konfiguracja Ollama na Raspberry Pi 4
 
 Poniżej znajdziesz szczegółową instrukcję instalacji Ollama i najnowszych modeli Qwen Code (Qwen 2.5 Coder) na Raspberry Pi 4.
 
