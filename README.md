@@ -353,7 +353,7 @@ Poniżej znajdziesz kompletną instrukcję od instalacji po finalny wynik. **Wsz
 
 ### 1. Klonowanie repozytorium
 ```bash
-git clone https://github.com/YOUR_USERNAME/book-parser.git 
+git clone https://github.com/bartoszruta26-droid/book-parser.git 
 cd book-parser
 ```
 
@@ -1046,7 +1046,7 @@ Szczegóły znajdziesz w pliku [`LICENSE`](LICENSE).
 ## 👥 Współtwórcy i kontakt
 
 ### Główny autor
-- **GitHub**: [@YOUR_USERNAME](https://github.com/YOUR_USERNAME )
+- **GitHub**: [@YOUR_USERNAME](https://github.com/bartoszruta26-droid )
 
 ### Podziękowania
 - Twórcom [mempalace](https://github.com/milla-jovovich/mempalace ) za rewolucyjne podejście do lokalnej pamięci AI
@@ -1061,8 +1061,8 @@ Szczegóły znajdziesz w pliku [`LICENSE`](LICENSE).
 5. Otwórz **Pull Request**
 
 ### Kontakt
-- **Issues**: [GitHub Issues](https://github.com/YOUR_USERNAME/book-parser/issues )
-- **Discussions**: [GitHub Discussions](https://github.com/YOUR_USERNAME/book-parser/discussions )
+- **Issues**: [GitHub Issues](https://github.com/bartoszruta26-droid/book-parser/issues )
+- **Discussions**: [GitHub Discussions](https://github.com/bartoszruta26-droid/book-parser/discussions )
 - **Email**: your.email@example.com
 
 ---
