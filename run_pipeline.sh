@@ -317,15 +317,54 @@ if [[ "$EXPAND" == true ]]; then
         echo -e "  JSON: $REWRITEN_OUTPUT"
         echo -e "  TXT:  $TEXT_OUTPUT"
         
-        # Krok 4: Przeniesienie wyników do /finish
+        # Krok 4: Przeniesienie wyników do /finish z wykorzystaniem OfficeCli AI
         echo ""
-        echo -e "${BLUE}=== KROK 4: Zapis do katalogu finish ===${NC}"
-        cp "$REWRITEN_OUTPUT" "$FINAL_OUTPUT"
-        cp "$TEXT_OUTPUT" "$OUTPUT_DIR/final_${TIMESTAMP}.txt"
+        echo -e "${BLUE}=== KROK 4: Generowanie finalnego dokumentu z OfficeCli AI ===${NC}"
+        
+        # Sprawdź czy officecli jest dostępne
+        if command -v officecli &> /dev/null; then
+            echo -e "${GREEN}✓ OfficeCli dostępne, generowanie dokumentu...${NC}"
+            
+            # Generuj dokument .doc z wykorzystaniem OfficeCli AI
+            FINAL_DOC="$OUTPUT_DIR/book_$(date +%Y%m%d_%H%M%S).doc"
+            
+            officecli generate \
+                --input "$REWRITEN_DIR" \
+                --output "$FINAL_DOC" \
+                --format doc \
+                --ai-compose \
+                --title "Przetworzony Dokument" \
+                --author "Book-Parser AI" \
+                2>&1 || {
+                    echo -e "${YELLOW}⚠ OfficeCli zakończyło z błędem, używam alternatywnej metody${NC}"
+                    # Fallback do doc_generator
+                    ./doc_generator -i "$REWRITEN_DIR" -o "$FINAL_DOC" -v
+                }
+            
+            echo -e "${GREEN}✓ Dokument wygenerowany przez OfficeCli: $FINAL_DOC${NC}"
+        else
+            echo -e "${YELLOW}⊘ OfficeCli nie jest zainstalowane - używam doc_generator jako fallback${NC}"
+            echo -e "${YELLOW}Aby zainstalować OfficeCli:${NC}"
+            echo -e "  git clone https://github.com/iOfficeAI/OfficeCli.git"
+            echo -e "  cd OfficeCli && pip install -r requirements.txt && sudo make install"
+            echo ""
+            
+            # Użyj doc_generator jako alternatywy
+            FINAL_DOC="$OUTPUT_DIR/book_$(date +%Y%m%d_%H%M%S).doc"
+            ./doc_generator -i "$REWRITEN_DIR" -o "$FINAL_DOC" -v
+            
+            echo -e "${GREEN}✓ Dokument wygenerowany przez doc_generator: $FINAL_DOC${NC}"
+        fi
+        
+        # Dodatkowe kopiowanie plików źródłowych do finish
+        cp "$REWRITEN_OUTPUT" "$OUTPUT_DIR/" 2>/dev/null || true
+        cp "$TEXT_OUTPUT" "$OUTPUT_DIR/" 2>/dev/null || true
+        
         echo -e "${GREEN}✓ Wyniki przeniesione do katalogu finish${NC}"
         echo -e "${YELLOW}Finalne pliki w:${NC}"
-        echo -e "  JSON: $FINAL_OUTPUT"
-        echo -e "  TXT:  $OUTPUT_DIR/final_${TIMESTAMP}.txt"
+        echo -e "  DOC:  $FINAL_DOC"
+        [[ -f "$OUTPUT_DIR/$(basename $REWRITEN_OUTPUT)" ]] && echo -e "  JSON: $OUTPUT_DIR/$(basename $REWRITEN_OUTPUT)"
+        [[ -f "$OUTPUT_DIR/$(basename $TEXT_OUTPUT)" ]] && echo -e "  TXT:  $OUTPUT_DIR/$(basename $TEXT_OUTPUT)"
     fi
 else
     echo -e "${BLUE}=== KROK 3: Pominięto ekspansję ===${NC}"

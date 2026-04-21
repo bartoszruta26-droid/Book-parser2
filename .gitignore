@@ -1,49 +1,48 @@
-```bash
-# Environment
+```
+# Chunk files directory
+chunk/
+
+# Temporary and log files
+*.tmp
+*.log
+
+# Environment files
 .env
 .env.local
 *.env.*
 
-# Logs and temp files
-*.log
-*.tmp
-*.swp
-
-# Editors
-.vscode/
-.idea/
-
-# Python
+# Python specific
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
 .Python
 *.so
-.coverage
-htmlcov/
-.coverage.*
-.python-version
+*.egg-info/
+.eggs/
 
-# Dependencies
+# Virtual environments
 venv/
 .venv/
-.env
-pip-log.txt
-pip-delete-this-directory.txt
-.tox/
-.coverage
-.nox/
-.pytest_cache/
-.mypy_cache/
+env/
+ENV/
 
-# Build artifacts
+# Build and distribution artifacts
 build/
 dist/
 *.egg
-*.egg-info/
-.installed.cfg
-*.egg-info/
+*.whl
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Testing
+.coverage
+coverage/
+htmlcov/
+.nyc_output
+.mypy_cache/
+.pytest_cache/
+.tox/
 
 # OS generated files
 .DS_Store
@@ -53,4 +52,11 @@ dist/
 .Trashes
 ehthumbs.db
 Thumbs.db
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
 ```
