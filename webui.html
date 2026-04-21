@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Book Parser - Web UI</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+
+        header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        header p {
+            opacity: 0.9;
+            font-size: 1.1em;
+        }
+
+        .main-content {
+            padding: 40px;
+        }
+
+        .control-panel {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 30px;
+            margin-bottom: 40px;
+        }
+
+        .panel-section {
+            background: #f8f9fa;
+            padding: 25px;
+            border-radius: 10px;
+            border-left: 4px solid #667eea;
+        }
+
+        .panel-section h2 {
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 1.3em;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #555;
+            font-weight: 600;
+        }
+
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 1em;
+            transition: border-color 0.3s;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .form-group small {
+            display: block;
+            margin-top: 5px;
+            color: #888;
+            font-size: 0.85em;
+        }
+
+        .btn {
+            display: inline-block;
+            padding: 14px 28px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1.1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            text-decoration: none;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+        }
+
+        .status-section {
+            background: #f8f9fa;
+            padding: 25px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+        }
+
+        .status-section h2 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+
+        .status-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+        }
+
+        .status-card {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .status-card .number {
+            font-size: 2.5em;
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .status-card .label {
+            color: #666;
+            margin-top: 5px;
+        }
+
+        .progress-container {
+            margin-top: 20px;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 30px;
+            background: #e0e0e0;
+            border-radius: 15px;
+            overflow: hidden;
+            margin-top: 10px;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            width: 0%;
+            transition: width 0.5s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+        }
+
+        .logs-section {
+            background: #1e1e1e;
+            padding: 25px;
+            border-radius: 10px;
+            margin-top: 30px;
+        }
+
+        .logs-section h2 {
+            color: #fff;
+            margin-bottom: 15px;
+        }
+
+        .logs-container {
+            background: #000;
+            padding: 15px;
+            border-radius: 8px;
+            height: 400px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+        }
+
+        .log-entry {
+            margin-bottom: 5px;
+            padding: 5px;
+            border-radius: 3px;
+        }
+
+        .log-info { color: #4fc3f7; }
+        .log-success { color: #81c784; }
+        .log-warning { color: #ffb74d; }
+        .log-error { color: #e57373; }
+        .log-debug { color: #9575cd; }
+
+        .file-list {
+            margin-top: 20px;
+        }
+
+        .file-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px;
+            background: white;
+            border-radius: 6px;
+            margin-bottom: 10px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+
+        .file-info {
+            flex: 1;
+        }
+
+        .file-name {
+            font-weight: 600;
+            color: #333;
+        }
+
+        .file-meta {
+            font-size: 0.85em;
+            color: #888;
+            margin-top: 3px;
+        }
+
+        .file-status {
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 0.85em;
+            font-weight: 600;
+        }
+
+        .status-pending { background: #ffe082; color: #f57f17; }
+        .status-processing { background: #81d4fa; color: #0277bd; }
+        .status-completed { background: #a5d6a7; color: #2e7d32; }
+        .status-error { background: #ef9a9a; color: #c62828; }
+
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .checkbox-group input[type="checkbox"] {
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
+        }
+
+        .checkbox-group label {
+            cursor: pointer;
+            font-weight: 600;
+            color: #555;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            margin-top: 20px;
+        }
+
+        @media (max-width: 768px) {
+            .control-panel {
+                grid-template-columns: 1fr;
+            }
+            
+            header h1 {
+                font-size: 1.8em;
+            }
+            
+            .main-content {
+                padding: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>📚 Book Parser</h1>
+            <p>Inteligentny system przetwarzania książek z wykorzystaniem AI</p>
+        </header>
+
+        <div class="main-content">
+            <!-- Panel sterowania -->
+            <div class="control-panel">
+                <!-- Konfiguracja wejścia/wyjścia -->
+                <div class="panel-section">
+                    <h2>📁 Katalogi</h2>
+                    
+                    <div class="form-group">
+                        <label for="inputDir">Katalog wejściowy</label>
+                        <input type="text" id="inputDir" value="./input" placeholder="np. ./input">
+                        <small>Katalog z dokumentami do przetworzenia</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="chunkDir">Katalog na chunki</label>
+                        <input type="text" id="chunkDir" value="./chunk" placeholder="np. ./chunk">
+                        <small>Gdzie zapisywać podzielone segmenty</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="rewritenDir">Katalog na przepisane</label>
+                        <input type="text" id="rewritenDir" value="./rewriten" placeholder="np. ./rewriten">
+                        <small>Przepisane chunki po ekspansji</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="outputDir">Katalog wyjściowy</label>
+                        <input type="text" id="outputDir" value="./finish" placeholder="np. ./finish">
+                        <small>Finalne wyniki przetwarzania</small>
+                    </div>
+                </div>
+
+                <!-- Konfiguracja modelu AI -->
+                <div class="panel-section">
+                    <h2>🤖 Model AI</h2>
+                    
+                    <div class="form-group">
+                        <label for="model">Model Ollama</label>
+                        <input type="text" id="model" value="qwen2.5-coder:7b" placeholder="np. qwen2.5-coder:7b">
+                        <small>Nazwa modelu do użycia</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="style">Styl generowania</label>
+                        <select id="style">
+                            <option value="technical">Techniczny</option>
+                            <option value="academic">Akademicki</option>
+                            <option value="journalistic">Dziennikarski</option>
+                            <option value="creative">Kreatywny</option>
+                            <option value="business">Biznesowy</option>
+                            <option value="casual">Nieformalny</option>
+                        </select>
+                        <small>Styl przepisywania treści</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="length">Długość outputu</label>
+                        <select id="length">
+                            <option value="short">Krótka</option>
+                            <option value="medium" selected>Średnia</option>
+                            <option value="long">Długa</option>
+                            <option value="very_long">Bardzo długa</option>
+                        </select>
+                        <small>Długość generowanych podsumowań</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="language">Język</label>
+                        <input type="text" id="language" value="pl" placeholder="np. pl, en">
+                        <small>Kod języka (pl, en, de, itp.)</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="maxChunks">Maksymalna liczba chunków</label>
+                        <input type="number" id="maxChunks" value="5" min="1" max="100">
+                        <small>Ile chunków przetworzyć jednocześnie</small>
+                    </div>
+
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="expand" checked>
+                        <label for="expand">Włącz ekspansję treści przez LLM</label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Status -->
+            <div class="status-section">
+                <h2>📊 Status systemu</h2>
+                
+                <div class="status-grid">
+                    <div class="status-card">
+                        <div class="number" id="pendingCount">0</div>
+                        <div class="label">Oczekujące</div>
+                    </div>
+                    <div class="status-card">
+                        <div class="number" id="processingCount">0</div>
+                        <div class="label">W trakcie</div>
+                    </div>
+                    <div class="status-card">
+                        <div class="number" id="completedCount">0</div>
+                        <div class="label">Zakończone</div>
+                    </div>
+                    <div class="status-card">
+                        <div class="number" id="errorCount">0</div>
+                        <div class="label">Błędy</div>
+                    </div>
+                </div>
+
+                <div class="progress-container">
+                    <label>Postęp przetwarzania:</label>
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="progressFill">0%</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Lista plików -->
+            <div class="panel-section">
+                <h2>📄 Pliki do przetworzenia</h2>
+                
+                <div class="file-list" id="fileList">
+                    <div class="file-item">
+                        <div class="file-info">
+                            <div class="file-name">example_book.pdf</div>
+                            <div class="file-meta">2.5 MB • Dodano: 2024-01-15 10:30</div>
+                        </div>
+                        <div class="file-status status-pending">Oczekuje</div>
+                    </div>
+                    <div class="file-item">
+                        <div class="file-info">
+                            <div class="file-name">manual_v2.docx</div>
+                            <div class="file-meta">1.8 MB • Dodano: 2024-01-15 11:45</div>
+                        </div>
+                        <div class="file-status status-processing">Przetwarzanie</div>
+                    </div>
+                    <div class="file-item">
+                        <div class="file-info">
+                            <div class="file-name">thesis_final.pdf</div>
+                            <div class="file-meta">5.2 MB • Dodano: 2024-01-14 16:20</div>
+                        </div>
+                        <div class="file-status status-completed">Zakończone</div>
+                    </div>
+                </div>
+
+                <div class="action-buttons">
+                    <button class="btn" onclick="startPipeline()">▶️ Uruchom Pipeline</button>
+                    <button class="btn btn-secondary" onclick="checkStatus()">🔄 Odśwież status</button>
+                    <button class="btn btn-success" onclick="checkOllama()">✅ Sprawdź Ollama</button>
+                    <button class="btn btn-danger" onclick="stopPipeline()">⏹️ Zatrzymaj</button>
+                </div>
+            </div>
+
+            <!-- Logi -->
+            <div class="logs-section">
+                <h2>📋 Logi na żywo</h2>
+                <div class="logs-container" id="logsContainer">
+                    <div class="log-entry log-info">[INFO] System gotowy do pracy...</div>
+                    <div class="log-entry log-debug">[DEBUG] Sprawdzanie dostępności katalogów...</div>
+                    <div class="log-entry log-success">[SUCCESS] Katalog ./input znaleziony</div>
+                    <div class="log-entry log-success">[SUCCESS] Katalog ./chunk znaleziony</div>
+                    <div class="log-entry log-info">[INFO] Wykryto 3 pliki do przetworzenia</div>
+                    <div class="log-entry log-warning">[WARNING] Brak połączenia z mempalace - pomijam krok</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Symulacja działania - w produkcji tutaj byłoby API do backendu
+        
+        function addLog(message, type = 'info') {
+            const logsContainer = document.getElementById('logsContainer');
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = document.createElement('div');
+            logEntry.className = `log-entry log-${type}`;
+            logEntry.textContent = `[${timestamp}] ${message}`;
+            logsContainer.appendChild(logEntry);
+            logsContainer.scrollTop = logsContainer.scrollHeight;
+        }
+
+        function updateProgress(percent) {
+            const progressFill = document.getElementById('progressFill');
+            progressFill.style.width = percent + '%';
+            progressFill.textContent = Math.round(percent) + '%';
+        }
+
+        function startPipeline() {
+            addLog('Rozpoczynanie pipeline...', 'info');
+            
+            const config = {
+                inputDir: document.getElementById('inputDir').value,
+                chunkDir: document.getElementById('chunkDir').value,
+                rewritenDir: document.getElementById('rewritenDir').value,
+                outputDir: document.getElementById('outputDir').value,
+                model: document.getElementById('model').value,
+                style: document.getElementById('style').value,
+                length: document.getElementById('length').value,
+                language: document.getElementById('language').value,
+                maxChunks: parseInt(document.getElementById('maxChunks').value),
+                expand: document.getElementById('expand').checked
+            };
+
+            addLog(`Konfiguracja: model=${config.model}, styl=${config.style}`, 'debug');
+            addLog(`Ekspansja treści: ${config.expand ? 'włączona' : 'wyłączona'}`, 'info');
+            
+            // Symulacja postępu
+            let progress = 0;
+            const interval = setInterval(() => {
+                progress += Math.random() * 5;
+                if (progress >= 100) {
+                    progress = 100;
+                    clearInterval(interval);
+                    addLog('Pipeline zakończony sukcesem!', 'success');
+                    document.getElementById('completedCount').textContent = 
+                        parseInt(document.getElementById('completedCount').textContent) + 1;
+                } else {
+                    addLog(`Przetwarzanie... ${Math.round(progress)}%`, 'info');
+                }
+                updateProgress(progress);
+            }, 500);
+        }
+
+        function checkStatus() {
+            addLog('Sprawdzanie statusu...', 'info');
+            
+            // Symulacja odświeżania statusu
+            setTimeout(() => {
+                document.getElementById('pendingCount').textContent = Math.floor(Math.random() * 5);
+                document.getElementById('processingCount').textContent = Math.floor(Math.random() * 3);
+                document.getElementById('errorCount').textContent = Math.floor(Math.random() * 2);
+                addLog('Status odświeżony', 'success');
+            }, 500);
+        }
+
+        function checkOllama() {
+            addLog('Sprawdzanie dostępności Ollama...', 'info');
+            
+            setTimeout(() => {
+                const isAvailable = Math.random() > 0.3;
+                if (isAvailable) {
+                    addLog('✅ Ollama jest dostępny! Model qwen2.5-coder:7b gotowy.', 'success');
+                } else {
+                    addLog('❌ Nie można połączyć się z Ollama. Sprawdź czy usługa działa.', 'error');
+                }
+            }, 1000);
+        }
+
+        function stopPipeline() {
+            addLog('Zatrzymywanie pipeline...', 'warning');
+            updateProgress(0);
+            addLog('Pipeline zatrzymany przez użytkownika', 'warning');
+        }
+
+        // Auto-refresh co 30 sekund
+        setInterval(checkStatus, 30000);
+
+        // Inicjalizacja
+        window.addEventListener('DOMContentLoaded', () => {
+            addLog('Web UI załadowany', 'success');
+            checkStatus();
+        });
+    </script>
+</body>
+</html>
