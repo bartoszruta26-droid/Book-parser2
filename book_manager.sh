@@ -41,23 +41,23 @@ NC='\033[0m' # No Color
 # ============================================================================
 
 log_info() {
-    echo -e "${BLUE}[INFO]${NC} $1"
+    echo -e "${BLUE}[INFO]${NC} $1" >&2
 }
 
 log_success() {
-    echo -e "${GREEN}[SUCCESS]${NC} $1"
+    echo -e "${GREEN}[SUCCESS]${NC} $1" >&2
 }
 
 log_warning() {
-    echo -e "${YELLOW}[WARNING]${NC} $1"
+    echo -e "${YELLOW}[WARNING]${NC} $1" >&2
 }
 
 log_error() {
-    echo -e "${RED}[ERROR]${NC} $1"
+    echo -e "${RED}[ERROR]${NC} $1" >&2
 }
 
 log_step() {
-    echo -e "${CYAN}[STEP]${NC} $1"
+    echo -e "${CYAN}[STEP]${NC} $1" >&2
 }
 
 show_banner() {
@@ -134,18 +134,18 @@ select_book_interactive() {
         return 1
     fi
     
-    echo ""
-    echo "Dostępne książki:"
-    echo "─────────────────────────────────────────────────────────────"
-    printf "%-5s %-20s %-10s %-10s %-10s %-10s\n" "ID" "Nazwa" "Input" "Chunki" "Rewrite" "Finish"
-    echo "─────────────────────────────────────────────────────────────"
+    echo "" >&2
+    echo "Dostępne książki:" >&2
+    echo "─────────────────────────────────────────────────────────────" >&2
+    printf "%-5s %-20s %-10s %-10s %-10s %-10s\n" "ID" "Nazwa" "Input" "Chunki" "Rewrite" "Finish" >&2
+    echo "─────────────────────────────────────────────────────────────" >&2
     
     for book in "${books[@]}"; do
         IFS='|' read -r idx name input chunks rewrite finish <<< "$book"
-        printf "%-5s %-20s %-10s %-10s %-10s %-10s\n" "$idx" "$name" "$input" "$chunks" "$rewrite" "$finish"
+        printf "%-5s %-20s %-10s %-10s %-10s %-10s\n" "$idx" "$name" "$input" "$chunks" "$rewrite" "$finish" >&2
     done
-    echo "─────────────────────────────────────────────────────────────"
-    echo ""
+    echo "─────────────────────────────────────────────────────────────" >&2
+    echo "" >&2
     
     while true; do
         read -p "Wybierz numer książki (1-${#books[@]}) lub 'q' aby anulować: " choice
@@ -332,7 +332,7 @@ split_into_chunks() {
         fi
         
         local chunk_content="${content:$start_pos:$((end_pos - start_pos))}"
-        local chunk_file=$(printf "%s/chunk_%03d.txt" "$output_dir" "$chunk_num")
+        local chunk_file=$(printf "%s/%s_chunk_%03d.txt" "$output_dir" "$base_name" "$chunk_num")
         
         echo "$chunk_content" > "$chunk_file"
         
