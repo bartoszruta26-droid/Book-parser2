@@ -1,35 +1,48 @@
 #!/bin/bash
-# =============================================================================
-# LLM PIPELINE - PURE SHELL IMPLEMENTATION
-# Obslugiwane formaty: .txt .md .doc .docx .xls .xlsx .odt .ods .ppt .pptx .pdf
-# Architektura: Chunking -> Qwen-Coder (analiza) -> Qwen3.6 (pisanie) -> Qwen-Coder (skladanie)
-# Optymalizacja dla Raspberry Pi 4
-# =============================================================================
+# ==============================================================================
+# LLM Book Rewriting Pipeline - Bash Edition
+# Przeznaczenie: Raspberry Pi 4 (optymalizacja pamięci i CPU)
+# Architektura: Input -> Convert -> Chunk -> Coder(Analiza) -> 35B(Pisanie) -> Coder(Scalanie) -> Finish
+# 
+# URUCHOMIENIE Z DOWOLNEGO KATALOGU:
+#   /workspace/llm_pipeline/pipeline.sh run
+#   lub
+#   cd /workspace/llm_pipeline && ./pipeline.sh run
+#
+# OBSŁUGIWANE FORMATY: .txt .md .doc .docx .xls .xlsx .odt .ods .ppt .pptx .pdf
+# ==============================================================================
 
 set -euo pipefail
 
-# --- KONFIGURACJA ---
+# --- KONFIGURACJA ŚCIEŻEK (Działa z każdego katalogu) ---
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-INPUT_DIR="${SCRIPT_DIR}/input"
-FINISH_DIR="${SCRIPT_DIR}/finish"
-CHUNK_DIR="${SCRIPT_DIR}/chunk"
-LOGS_DIR="${SCRIPT_DIR}/logs"
-TEMP_DIR="${SCRIPT_DIR}/temp"
-CONFIG_DIR="${SCRIPT_DIR}/config"
+cd "$SCRIPT_DIR"
 
-# Endpointy LLM
+DIR_INPUT="${SCRIPT_DIR}/input"
+DIR_FINISH="${SCRIPT_DIR}/finish"
+DIR_CHUNK="${SCRIPT_DIR}/chunk"
+DIR_LOGS="${SCRIPT_DIR}/logs"
+DIR_TMP="${SCRIPT_DIR}/temp"
+FILE_CONFIG="${SCRIPT_DIR}/config/settings.conf"
+FILE_LOCK="${DIR_LOGS}/pipeline.lock"
+FILE_PID="${DIR_LOGS}/pipeline.pid"
+
+# --- KONFIGURACJA MODELI I SIECI ---
 LLM_35B_URL="${LLM_35B_URL:-http://localhost:8000/v1}"
 LLM_CODER_URL="${LLM_CODER_URL:-http://localhost:8001/v1}"
 MODEL_35B="${MODEL_35B:-Qwen/Qwen3.6-35B-A3B}"
 MODEL_CODER="${MODEL_CODER:-Qwen/Qwen-Coder}"
 
-# Ustawienia czasowe dla Raspberry Pi 4
-CHUNK_SIZE="${CHUNK_SIZE:-2000}"
-OVERLAP_SIZE="${OVERLAP_SIZE:-200}"
-PROCESSING_TIMEOUT="${PROCESSING_TIMEOUT:-7200}"
-COOLDOWN_TIME="${COOLDOWN_TIME:-180}"
+# --- PARAMETRY PRZETWARZANIA (Optymalizacja dla RPi4) ---
+CHUNK_SIZE="${CHUNK_SIZE:-1500}"
+CHUNK_OVERLAP="${CHUNK_OVERLAP:-200}"
+COOLDOWN_TIME="${COOLDOWN_TIME:-120}"
+REQUEST_TIMEOUT="${REQUEST_TIMEOUT:-600}"
 MAX_RETRIES="${MAX_RETRIES:-3}"
-CHECK_INTERVAL="${CHECK_INTERVAL:-30}"
+CHECK_INTERVAL="${CHECK_INTERVAL:-60}"
+
+# --- NARZĘDZIA KONWERSJI ---
+SUPPORTED_EXTS=("txt" "md" "doc" "docx" "odt" "pdf" "xls" "xlsx" "ods" "ppt" "pptx")
 
 # --- LOGOWANIE ---
 log() {
@@ -38,7 +51,7 @@ log() {
     local msg="$*"
     local timestamp
     timestamp=$(date '+%Y-%m-%d %H:%M:%S')
-    echo "[$timestamp] [$level] $msg" | tee -a "${LOGS_DIR}/pipeline.log"
+    echo "[$timestamp] [$level] $msg" | tee -a "${DIR_LOGS}/pipeline.log"
 }
 
 log_info() { log "INFO" "$@"; }
@@ -47,10 +60,19 @@ log_error() { log "ERROR" "$@"; }
 
 # --- INICJALIZACJA ---
 init_dirs() {
-    mkdir -p "$INPUT_DIR" "$FINISH_DIR" "$CHUNK_DIR" "$LOGS_DIR" "$TEMP_DIR" "$CONFIG_DIR"
+    mkdir -p "$DIR_INPUT" "$DIR_FINISH" "$DIR_CHUNK" "$DIR_LOGS" "$DIR_TMP" "${SCRIPT_DIR}/config"
+    touch "${DIR_LOGS}/pipeline.log" 2>/dev/null || true
+    log_info "Zainicjowano katalogi robocze."
 }
 
-# --- KONWERSJA DOKUMENTOW DO TXT ---
+load_config() {
+    if [[ -f "$FILE_CONFIG" ]]; then
+        source "$FILE_CONFIG"
+        log_info "Wczytano konfigurację z $FILE_CONFIG"
+    fi
+}
+
+# --- KONWERSJA DOKUMENTÓW DO TXT ---
 convert_to_txt() {
     local input_file="$1"
     local output_file="$2"
@@ -97,14 +119,14 @@ convert_to_txt() {
             ;;
         xls|xlsx)
             if command -v ssconvert &>/dev/null; then
-                ssconvert "$input_file" "${TEMP_DIR}/temp.csv" 2>/dev/null && cat "${TEMP_DIR}/temp.csv" > "$output_file"
+                ssconvert "$input_file" "${DIR_TMP}/temp.csv" 2>/dev/null && cat "${DIR_TMP}/temp.csv" > "$output_file"
             elif command -v pandoc &>/dev/null; then
                 pandoc -f "${extension}" -t plain "$input_file" -o "$output_file" 2>/dev/null || true
             fi
             ;;
         ods)
             if command -v ssconvert &>/dev/null; then
-                ssconvert "$input_file" "${TEMP_DIR}/temp.csv" 2>/dev/null && cat "${TEMP_DIR}/temp.csv" > "$output_file"
+                ssconvert "$input_file" "${DIR_TMP}/temp.csv" 2>/dev/null && cat "${DIR_TMP}/temp.csv" > "$output_file"
             elif command -v pandoc &>/dev/null; then
                 pandoc -f ods -t plain "$input_file" -o "$output_file" 2>/dev/null || true
             fi
@@ -137,7 +159,7 @@ convert_to_txt() {
 split_into_chunks() {
     local input_file="$1"
     local book_id="$2"
-    local chunk_dir="${CHUNK_DIR}/${book_id}"
+    local chunk_dir="${DIR_CHUNK}/${book_id}"
     
     mkdir -p "$chunk_dir"
     
@@ -268,7 +290,7 @@ process_book() {
     log_info "=========================================="
     
     # Konwersja do TXT
-    local txt_file="${TEMP_DIR}/${book_id}_source.txt"
+    local txt_file="${DIR_TMP}/${book_id}_source.txt"
     if ! convert_to_txt "$input_file" "$txt_file"; then
         log_error "Nie udalo sie przekonwertowac $filename"
         return 1
@@ -283,7 +305,7 @@ process_book() {
     log_info "Podzielono na $num_chunks chunkow"
     
     # Przygotowanie pliku wynikowego
-    local output_file="${FINISH_DIR}/${book_title}_rewritten_$(date +%Y%m%d).txt"
+    local output_file="${DIR_FINISH}/${book_title}_rewritten_$(date +%Y%m%d).txt"
     : > "$output_file"
     
     # Naglowek
@@ -304,7 +326,7 @@ EOFHEADER
     local next_context=""
     
     for ((i=1; i<=num_chunks; i++)); do
-        local chunk_file="${CHUNK_DIR}/${book_id}/chunk_$(printf '%04d' $i).txt"
+        local chunk_file="${DIR_CHUNK}/${book_id}/chunk_$(printf '%04d' $i).txt"
         
         if [[ ! -f "$chunk_file" ]]; then
             log_warn "Brak chunka $i, pomijam"
@@ -315,7 +337,7 @@ EOFHEADER
         
         # Pobierz kontekst nastepny
         if [[ $i -lt $num_chunks ]]; then
-            local next_chunk="${CHUNK_DIR}/${book_id}/chunk_$(printf '%04d' $((i+1))).txt"
+            local next_chunk="${DIR_CHUNK}/${book_id}/chunk_$(printf '%04d' $((i+1))).txt"
             next_context=$(head -c 500 "$next_chunk" 2>/dev/null | tr '\n' ' ')
         else
             next_context=""
@@ -352,7 +374,7 @@ Wygenerowano: $(date)
 EOFOOTER
     
     # Cleanup
-    rm -rf "${CHUNK_DIR}/${book_id}"
+    rm -rf "${DIR_CHUNK}/${book_id}"
     
     log_info "=========================================="
     log_info "ZAKONCZONO: $filename"
@@ -371,7 +393,7 @@ run_pipeline() {
         
         shopt -s nullglob
         for ext in txt md doc docx xls xlsx odt ods ppt pptx pdf; do
-            for file in "$INPUT_DIR"/*."$ext"; do
+            for file in "$DIR_INPUT"/*."$ext"; do
                 [[ -f "$file" ]] || continue
                 
                 local bname
@@ -386,7 +408,7 @@ run_pipeline() {
                 touch "$marker"
                 
                 if process_book "$file"; then
-                    mv "$file" "${LOGS_DIR}/processed_${bname}" 2>/dev/null || true
+                    mv "$file" "${DIR_LOGS}/processed_${bname}" 2>/dev/null || true
                     files_processed=$((files_processed + 1))
                 else
                     log_error "Nie udalo sie przetworzyc $bname"
@@ -412,18 +434,26 @@ show_help() {
 LLM Pipeline - Pure Shell Implementation
 
 Uzycie:
-  $0 [komenda]
+  $0 [komenda] [argumenty]
 
 Komendy:
   start     Uruchom pipeline w tle
   stop      Zatrzymaj pipeline
   status    Pokaz status
   process   Przetworz pojedynczy plik
+  convert   Konwertuj plik do TXT
+  chunk     Podziel plik na chunki
+  test-api  Test polaczenia z API LLM
+  clean     Wyczysc pliki tymczasowe
+  run       Uruchom petle przetwarzania (wewnetrzne)
   help      Pokaz ta pomoc
 
 Przyklady:
   $0 start              # Uruchom w tle
   $0 process book.pdf   # Przetworz pojedynczy plik
+  $0 convert doc.docx   # Konwertuj do TXT
+  $0 chunk file.txt     # Podziel na chunki
+  $0 test-api           # Test API
 
 EOF
 }
@@ -434,31 +464,31 @@ main() {
     
     case "${1:-run}" in
         start)
-            nohup "$0" run > "${LOGS_DIR}/pipeline.out" 2>&1 &
-            echo $! > "${LOGS_DIR}/pipeline.pid"
-            log_info "Pipeline uruchomiony w tle (PID: $(cat ${LOGS_DIR}/pipeline.pid))"
+            nohup "$0" run > "${DIR_LOGS}/pipeline.out" 2>&1 &
+            echo $! > "${DIR_LOGS}/pipeline.pid"
+            log_info "Pipeline uruchomiony w tle (PID: $(cat ${DIR_LOGS}/pipeline.pid))"
             ;;
         stop)
-            if [[ -f "${LOGS_DIR}/pipeline.pid" ]]; then
-                kill "$(cat ${LOGS_DIR}/pipeline.pid)" 2>/dev/null || true
-                rm -f "${LOGS_DIR}/pipeline.pid"
+            if [[ -f "${DIR_LOGS}/pipeline.pid" ]]; then
+                kill "$(cat ${DIR_LOGS}/pipeline.pid)" 2>/dev/null || true
+                rm -f "${DIR_LOGS}/pipeline.pid"
                 log_info "Pipeline zatrzymany"
             else
                 log_warn "Pipeline nie jest uruchomiony"
             fi
             ;;
         status)
-            if [[ -f "${LOGS_DIR}/pipeline.pid" ]] && kill -0 "$(cat ${LOGS_DIR}/pipeline.pid)" 2>/dev/null; then
-                echo "Pipeline: URUCHOMIONY (PID: $(cat ${LOGS_DIR}/pipeline.pid))"
+            if [[ -f "${DIR_LOGS}/pipeline.pid" ]] && kill -0 "$(cat ${DIR_LOGS}/pipeline.pid)" 2>/dev/null; then
+                echo "Pipeline: URUCHOMIONY (PID: $(cat ${DIR_LOGS}/pipeline.pid))"
             else
                 echo "Pipeline: ZATRZYMANI"
             fi
             echo ""
-            echo "Pliki wejsciowe: $(find "$INPUT_DIR" -type f 2>/dev/null | wc -l)"
-            echo "Pliki wyjsciowe: $(find "$FINISH_DIR" -type f -name '*.txt' 2>/dev/null | wc -l)"
+            echo "Pliki wejsciowe: $(find "$DIR_INPUT" -type f 2>/dev/null | wc -l)"
+            echo "Pliki wyjsciowe: $(find "$DIR_FINISH" -type f -name '*.txt' 2>/dev/null | wc -l)"
             echo ""
             echo "Ostatnie logi:"
-            tail -20 "${LOGS_DIR}/pipeline.log" 2>/dev/null || echo "Brak logow"
+            tail -20 "${DIR_LOGS}/pipeline.log" 2>/dev/null || echo "Brak logow"
             ;;
         process)
             if [[ -n "${2:-}" ]] && [[ -f "$2" ]]; then
