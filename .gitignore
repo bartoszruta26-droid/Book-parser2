@@ -1,50 +1,48 @@
 ```bash
-# Compiled and build artifacts
-*.pyc
-__pycache__/
-*.o
-*.obj
-*.class
-*.exe
-*.dll
-*.so
-*.a
-*.out
-
-# Dependencies
-node_modules/
-venv/
-.venv/
+# Environment files
 .env
 .env.local
-.env.*
+*.env.*
 
-# Logs and temp files
+# Logs and temporary files
 *.log
 *.tmp
 *.swp
-*.swo
 
 # Editors
 .vscode/
 .idea/
 
-# Build directories
+# Dependencies
+node_modules/
+venv/
+.venv/
+__pycache__/
+*.egg-info/
 dist/
 build/
 target/
 .gradle/
-
-# Coverage and testing
-.coverage
-coverage/
-htmlcov/
 .mypy_cache/
 .pytest_cache/
+coverage/
+htmlcov/
+.coverage
 
 # System files
 .DS_Store
 Thumbs.db
+
+# Compiled files
+*.pyc
+*.class
+*.o
+*.exe
+*.dll
+*.so
+*.a
+*.obj
+*.out
 
 # Compressed files
 *.zip
